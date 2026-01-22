@@ -1,0 +1,33 @@
+# VCS and editor
+.git
+.gitignore
+.vscode
+.idea
+*.swp
+
+# Python caches and builds
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Environments
+.env
+.env.*
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Local data
+*.db
+*.sqlite
+/data/
+
+# Dependencies (if present)
+node_modules/
+
+# Keep this file
+!.dockerignore

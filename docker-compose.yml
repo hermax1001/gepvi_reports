@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: gepvi_reports_db
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: gepvi_reports_password
+      POSTGRES_DB: gepvi_reports_db
+    ports:
+      - "5437:5432"  # Используем 5434 чтобы не конфликтовать с локальным PostgreSQL
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d gepvi_reports_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gepvi_reports_api
+    env_file:
+      - .env
+    environment:
+      - DEBUG=${DEBUG:-True}
+    ports:
+      - "8008:8008"
+    depends_on:
+      - db
+    restart: unless-stopped
+    # For local development, mount code as volume
+    volumes:
+      - .:/app
+    command: uvicorn web.main:app --host 0.0.0.0 --port 8008 --reload
+
+volumes:
+  db_data:
