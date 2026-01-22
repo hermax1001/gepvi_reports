@@ -1,6 +1,6 @@
 """Database models"""
-from app.models.user import User
-from app.models.webhook import Webhook
-from app.models.weight_history import WeightHistory
+from app.models.report import Report
+from app.models.task import Task
+from app.models.notification import Notification
 
-__all__ = ["User", "Webhook", "WeightHistory"]
+__all__ = ["Report", "Task", "Notification"]

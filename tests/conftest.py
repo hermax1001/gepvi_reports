@@ -22,7 +22,7 @@ sys.path.insert(0, _parent_dir)
 from settings.config import AppConfig
 from web.main import app
 from app.database import get_session
-from app.models import User, Webhook
+from app.models import Report, Task, Notification
 
 
 @pytest.fixture(scope='session')
@@ -74,8 +74,9 @@ async def cleanup_db():
     yield
     async for session in get_session():
         try:
-            await session.execute(User.__table__.delete())
-            await session.execute(Webhook.__table__.delete())
+            await session.execute(Report.__table__.delete())
+            await session.execute(Task.__table__.delete())
+            await session.execute(Notification.__table__.delete())
             await session.commit()
         except Exception:
             # Игнорируем ошибки если таблицы не существуют

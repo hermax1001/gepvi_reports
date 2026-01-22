@@ -1,6 +1,6 @@
-# Gepvi Users - User Management & Subscriptions Microservice
+# Gepvi Reports - Reporting & Notifications Microservice
 
-Микросервис для управления пользователями и подписками для GepCalories. Обрабатывает регистрацию пользователей, управление подписками и платежи через YooKassa.
+Микросервис для создания отчетов и управления уведомлениями с AI-анализом для GepCalories. Обрабатывает задачи отчетности, генерацию AI-анализа и отправку уведомлений.
 
 ## 🏗 Архитектура
 
@@ -9,7 +9,7 @@
 ### Основные директории:
 
 ```
-gepvi_users/
+gepvi_reports/
 ├── app/                    # Бизнес-логика
 │   ├── models/            # SQLModel модели
 │   ├── services.py        # Бизнес-логика
@@ -20,7 +20,7 @@ gepvi_users/
 │   ├── main.py            # FastAPI приложение
 │   ├── routes/            # API endpoints
 │   └── middleware.py      # Middleware (auth)
-├── clients/                # Внешние интеграции (YooKassa)
+├── clients/                # Внешние интеграции (OpenRouter AI)
 ├── settings/               # Конфигурация
 ├── alembic/                # Миграции БД
 └── tests/                  # Pytest тесты
@@ -30,34 +30,34 @@ gepvi_users/
 
 - **Backend**: FastAPI + Uvicorn
 - **Database**: PostgreSQL + SQLModel + Alembic
-- **Payments**: YooKassa
+- **AI**: OpenRouter API
 - **Testing**: Pytest + AsyncPG
 - **Deploy**: Docker
 
 ## ✨ Основные возможности
 
-1. **Управление пользователями**
-   - Получение или создание пользователя
-   - Отслеживание бесплатных AI запросов
-   - История создания/обновления
+1. **Управление отчетами**
+   - Создание отчетов с AI-анализом
+   - Хранение результатов анализа
+   - Получение отчетов по пользователю
+   - Поддержка различных типов отчетов (day/week/month)
 
-2. **Управление подписками**
-   - 5 бесплатных AI запросов при регистрации
-   - Платные подписки через YooKassa
-   - Автоматическая активация после оплаты
-   - Проверка активности подписки
+2. **Управление задачами**
+   - Планирование периодических задач
+   - Отслеживание времени выполнения
+   - Гибкая настройка периода (day/week/month)
 
-3. **Интеграция с YooKassa**
-   - Создание платежей
-   - Обработка webhooks
-   - Автоматическая активация подписок
+3. **Система уведомлений**
+   - Отправка уведомлений различными методами (telegram/email/push)
+   - Хранение истории уведомлений
+   - Дополнительные метаданные (JSONB)
 
 ## 📦 Быстрый старт
 
 ### 1. Установите зависимости
 
 ```bash
-cd gepvi_users
+cd gepvi_reports
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -69,17 +69,15 @@ pip install -r requirements.txt
 
 ```env
 # Database
-DB_URL=postgresql+asyncpg://user:password@localhost:5432/gepvi_users
-TEST_DB_URL=postgresql+asyncpg://user:password@localhost:5432/gepvi_users_test
+DB_URL=postgresql+asyncpg://user:password@localhost:5432/gepvi_reports
+TEST_DB_URL=postgresql+asyncpg://user:password@localhost:5432/gepvi_reports_test
 
 # API
 API_KEY=your_secure_api_key_here
 PORT=8008
 
-# YooKassa
-YOOKASSA_SHOP_ID=your_shop_id
-YOOKASSA_SECRET_KEY=your_secret_key
-YOOKASSA_PROVIDER_ID=yookassa
+# OpenRouter AI
+OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Sentry (optional)
 SENTRY_DSN=
@@ -99,81 +97,103 @@ uvicorn web.main:app --reload --port 8008
 
 ## 🔌 API Endpoints
 
-### Пользователи
+### Отчеты
 
 ```bash
-# Получить или создать пользователя (можно передать либо user_id, либо telegram_user_id)
-POST /users/get_or_create
-Body: {
-  "telegram_user_id": "123456789"
-}
-# ИЛИ
-POST /users/get_or_create
-Body: {
-  "user_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-# ИЛИ оба (приоритет у user_id)
-POST /users/get_or_create
-Body: {
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "telegram_user_id": "123456789"
-}
+# Получить все отчеты пользователя
+GET /reports/user/{user_id}
+Headers: X-API-Key: your_api_key
 
-Response: {
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "telegram_user_id": "123456789",
-  "subscription_expires_at": null,
-  "has_active_subscription": false,
-  "created_at": "2025-01-01T00:00:00",
-  "updated_at": "2025-01-01T00:00:00"
-}
+Response: [
+  {
+    "id": 1,
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "report_type": "day",
+    "result": "AI analysis result...",
+    "task_id": 1,
+    "created_at": "2026-01-22T00:00:00+00:00",
+    "updated_at": "2026-01-22T00:00:00+00:00"
+  }
+]
 ```
 
-### Платежи
+### Задачи
 
 ```bash
-# Создать платеж
-POST /payments/create
-Body: {
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",  // UUID (required)
-  "telegram_user_id": "123456789",                    // optional
-  "package_type": "monthly",
-  "return_url": "https://t.me/your_bot"
-}
+# Получить все задачи пользователя
+GET /tasks/user/{user_id}
+Headers: X-API-Key: your_api_key
 
-# Webhook от YooKassa
-POST /webhook/yookassa
+Response: [
+  {
+    "id": 1,
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "next_task_time": "2026-01-23T00:00:00+00:00",
+    "period": "day",
+    "created_at": "2026-01-22T00:00:00+00:00",
+    "updated_at": "2026-01-22T00:00:00+00:00"
+  }
+]
+```
+
+### Уведомления
+
+```bash
+# Получить все уведомления пользователя
+GET /notifications/user/{user_id}
+Headers: X-API-Key: your_api_key
+
+Response: [
+  {
+    "id": 1,
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "text": "Your daily report is ready!",
+    "sender_method": "telegram",
+    "meta": {"chat_id": "123456"},
+    "created_at": "2026-01-22T00:00:00+00:00",
+    "updated_at": "2026-01-22T00:00:00+00:00"
+  }
+]
 ```
 
 ## 📊 База данных
 
-### Схема: `gepvi_users`
+### Схема: `gepvi_reports`
 
-### Таблица `users`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `user_id` | UUID | Unique User ID (PK) |
-| `telegram_user_id` | VARCHAR | Telegram User ID (optional, unique) |
-| `subscription_expires_at` | TIMESTAMP | Дата окончания подписки (NULL = нет подписки) |
-| `created_at` | TIMESTAMP | Дата создания |
-| `updated_at` | TIMESTAMP | Дата обновления |
-
-### Таблица `webhooks`
+### Таблица `reports`
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `id` | INTEGER | ID (PK) |
-| `provider_name` | VARCHAR | Имя провайдера (yookassa) |
-| `webhook_payload` | JSON | Полезная нагрузка |
-| `response_code` | INTEGER | HTTP код ответа |
-| `created_at` | TIMESTAMP | Дата создания |
+| `user_id` | UUID | UUID пользователя |
+| `report_type` | VARCHAR | Тип отчета (day/week/month) |
+| `result` | TEXT | Результат AI-анализа |
+| `task_id` | INTEGER | ID задачи (FK на tasks) |
+| `created_at` | TIMESTAMPTZ | Дата создания |
+| `updated_at` | TIMESTAMPTZ | Дата обновления |
 
-## 💎 Пакеты подписок
+### Таблица `tasks`
 
-- **1 месяц - 249₽** (~8.3₽/день)
-- **3 месяца - 599₽** (скидка 20%, ~6.7₽/день)
-- **1 год - 1499₽** (скидка 50%, ~4.1₽/день)
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | INTEGER | ID (PK) |
+| `user_id` | UUID | UUID пользователя |
+| `next_task_time` | TIMESTAMPTZ | Время следующего выполнения |
+| `period` | VARCHAR | Период (day/week/month) |
+| `created_at` | TIMESTAMPTZ | Дата создания |
+| `updated_at` | TIMESTAMPTZ | Дата обновления |
+
+### Таблица `notifications`
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | INTEGER | ID (PK) |
+| `user_id` | UUID | UUID пользователя |
+| `text` | VARCHAR | Текст уведомления (optional) |
+| `sender_method` | VARCHAR | Метод отправки (telegram/email/push) |
+| `meta` | JSONB | Дополнительные метаданные |
+| `created_at` | TIMESTAMPTZ | Дата создания |
+| `updated_at` | TIMESTAMPTZ | Дата обновления |
 
 ## 🧪 Тестирование
 
@@ -187,45 +207,36 @@ pytest tests/ -v
 - `GET /` — health check
 - `GET /health` — health check
 - `GET /docs` — Swagger UI
-- `POST /webhook/yookassa` — YooKassa webhook
 
 ## 🔄 Интеграция с GepCalories
 
-GepCalories основной сервис обращается к gepvi_users через HTTP API:
+GepCalories основной сервис обращается к gepvi_reports через HTTP API:
 
 ```python
 # В GepCalories
-async def get_or_create_user(telegram_user_id: str) -> dict:
-    """Получить существующего пользователя или создать нового по telegram_user_id"""
+async def get_user_reports(user_id: str) -> list:
+    """Получить отчеты пользователя"""
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{USERS_SERVICE_URL}/users/get_or_create",
-            json={"telegram_user_id": telegram_user_id},
+        response = await client.get(
+            f"{REPORTS_SERVICE_URL}/reports/user/{user_id}",
             headers={"X-API-Key": API_KEY}
         )
         return response.json()
 
-async def get_or_create_user_by_uuid(user_id: str) -> dict:
-    """Получить существующего пользователя по UUID"""
+async def get_user_tasks(user_id: str) -> list:
+    """Получить задачи пользователя"""
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{USERS_SERVICE_URL}/users/get_or_create",
-            json={"user_id": user_id},
+        response = await client.get(
+            f"{REPORTS_SERVICE_URL}/tasks/user/{user_id}",
             headers={"X-API-Key": API_KEY}
         )
         return response.json()
 
-async def create_payment_for_user(user_id: str, telegram_user_id: str = None) -> dict:
-    """Создать платеж для пользователя"""
+async def get_user_notifications(user_id: str) -> list:
+    """Получить уведомления пользователя"""
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{USERS_SERVICE_URL}/payments/create",
-            json={
-                "user_id": user_id,  # UUID обязателен
-                "telegram_user_id": telegram_user_id,  # опционально
-                "package_type": "monthly",
-                "return_url": "https://t.me/your_bot"
-            },
+        response = await client.get(
+            f"{REPORTS_SERVICE_URL}/notifications/user/{user_id}",
             headers={"X-API-Key": API_KEY}
         )
         return response.json()
@@ -233,16 +244,14 @@ async def create_payment_for_user(user_id: str, telegram_user_id: str = None) ->
 
 ## 📝 Примечания
 
-- **Основной идентификатор**: UUID (автогенерируемый)
-- **telegram_user_id**: Опциональный, используется только для Telegram ботов
-- **Обратная совместимость**: `POST /users/get_or_create` поддерживает оба идентификатора
-- **Приоритет поиска**: сначала по `user_id` (UUID), затем по `telegram_user_id`
-- Используется схема `gepvi_users` для изоляции данных
+- **Идентификатор**: UUID пользователя из сервиса gepvi_users
+- **Периоды**: day, week, month (без enum для гибкости)
+- **Временные метки**: Используется timestamptz для правильной работы с часовыми поясами
+- Используется схема `gepvi_reports` для изоляции данных
 - Все async I/O операции
 - Type hints везде
 - Custom NNNN формат миграций (0001)
-- Полная изоляция от основного сервиса
-- Сервис не зависит от Telegram и может использоваться любыми бэкендами
+- Полная изоляция от других сервисов
 
 ## 📄 Лицензия
 

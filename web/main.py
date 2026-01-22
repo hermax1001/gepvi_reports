@@ -1,4 +1,4 @@
-"""FastAPI приложение для Gepvi Users"""
+"""FastAPI приложение для Gepvi Reports"""
 import logging.config
 
 import sentry_sdk
@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from settings.logs import LogsConfig
 from settings.config import AppConfig, STAND
-from web.routes.users import router as users_router
-from web.routes.payments import router as payments_router
-from web.routes.webhooks import router as webhooks_router
+from web.routes.reports import router as reports_router
+from web.routes.tasks import router as tasks_router
+from web.routes.notifications import router as notifications_router
 from web.middleware import APIKeyMiddleware
 from app.utils.error_handler import global_exception_handler, create_error_responses
 
@@ -26,8 +26,8 @@ sentry_sdk.init(
 )
 
 app = FastAPI(
-    title="Gepvi Users API",
-    description="User management and subscriptions microservice",
+    title="Gepvi Reports API",
+    description="Reporting and notification service with AI-powered analysis",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -51,22 +51,23 @@ app.add_middleware(
 
 # Подключение роутов
 app.include_router(
-    users_router,
-    prefix="/users",
-    tags=["users"],
+    reports_router,
+    prefix="/reports",
+    tags=["reports"],
     responses=create_error_responses()
 )
 
 app.include_router(
-    payments_router,
-    prefix="/payments",
-    tags=["payments"],
+    tasks_router,
+    prefix="/tasks",
+    tags=["tasks"],
     responses=create_error_responses()
 )
 
 app.include_router(
-    webhooks_router,
-    tags=["webhooks"],
+    notifications_router,
+    prefix="/notifications",
+    tags=["notifications"],
     responses=create_error_responses()
 )
 
@@ -75,7 +76,7 @@ app.include_router(
 async def root():
     return {
         "status": "ok",
-        "message": "Gepvi Users API is running",
+        "message": "Gepvi Reports API is running",
         "version": "1.0.0"
     }
 
@@ -84,7 +85,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "service": "gepvi_users"
+        "service": "gepvi_reports"
     }
 
 
