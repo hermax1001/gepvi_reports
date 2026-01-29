@@ -1,4 +1,5 @@
 """FastAPI приложение для Gepvi Reports"""
+import asyncio
 import logging.config
 
 import sentry_sdk
@@ -12,10 +13,29 @@ from web.routes.tasks import router as tasks_router
 from web.routes.notifications import router as notifications_router
 from web.middleware import APIKeyMiddleware
 from app.utils.error_handler import global_exception_handler, create_error_responses
+from app.database import get_session
+from app.services import process_stuck_notifications
 
 # Настраиваем логирование
 logging.config.dictConfig(LogsConfig.LOGGING)
 logger = logging.getLogger(__name__)
+
+# Background task для обработки провисевших уведомлений
+background_task = None
+
+
+async def notification_retry_background_job():
+    """Background job для обработки провисевших уведомлений каждую минуту"""
+    logger.info("Starting notification retry background job")
+    while True:
+        try:
+            async for session in get_session():
+                await process_stuck_notifications(session)
+        except Exception as e:
+            logger.error("Error in notification retry background job: %s", e, exc_info=True)
+
+        await asyncio.sleep(60)  # Запускаем каждую минуту
+
 
 # Создание FastAPI приложения
 
@@ -32,6 +52,27 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Запускаем background задачи при старте приложения"""
+    global background_task
+    background_task = asyncio.create_task(notification_retry_background_job())
+    logger.info("Background tasks started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Останавливаем background задачи при остановке приложения"""
+    global background_task
+    if background_task:
+        background_task.cancel()
+        try:
+            await background_task
+        except asyncio.CancelledError:
+            logger.info("Background task cancelled")
+    logger.info("Background tasks stopped")
 
 # Добавляем глобальный обработчик исключений
 app.add_exception_handler(Exception, global_exception_handler)

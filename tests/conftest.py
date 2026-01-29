@@ -74,9 +74,10 @@ async def cleanup_db():
     yield
     async for session in get_session():
         try:
+            # Удаляем в правильном порядке (учитывая FK constraints)
+            await session.execute(Notification.__table__.delete())
             await session.execute(Report.__table__.delete())
             await session.execute(Task.__table__.delete())
-            await session.execute(Notification.__table__.delete())
             await session.commit()
         except Exception:
             # Игнорируем ошибки если таблицы не существуют

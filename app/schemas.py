@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 
 # Report schemas
@@ -43,5 +43,19 @@ class NotificationResponse(BaseModel):
     text: Optional[str]
     sender_method: str
     meta: dict
+    status: str
+    retry_count: int
+    report_id: Optional[int]
     created_at: datetime
     updated_at: datetime
+
+
+class NotificationReserveRequest(BaseModel):
+    """Запрос на резервацию уведомлений"""
+    sender_method: str
+    limit: int = PydanticField(default=100, ge=1, le=100)
+
+
+class NotificationSuccessRequest(BaseModel):
+    """Запрос на пометку уведомлений как успешных"""
+    notification_ids: list[int]

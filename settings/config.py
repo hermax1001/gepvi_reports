@@ -29,4 +29,8 @@ class Settings:
         # SENTRY
         self.SENTRY_DSN: str = env.str("SENTRY_DSN", "")
 
+        # Notification retry settings
+        self.NOTIFICATION_RETRY_TIMEOUT_MINUTES: int = env.int("NOTIFICATION_RETRY_TIMEOUT_MINUTES", default=5)
+        self.NOTIFICATION_MAX_RETRY_COUNT: int = env.int("NOTIFICATION_MAX_RETRY_COUNT", default=2)
+
 AppConfig = Settings()
