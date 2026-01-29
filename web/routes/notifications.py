@@ -64,16 +64,17 @@ async def reserve_notifications_endpoint(
 @router.post(
     "/success",
     status_code=status.HTTP_200_OK,
-    summary="Отметить уведомления как успешно отправленные"
+    summary="Отметить уведомления как успешно отправленные или failed"
 )
 @handle_api_errors
 async def mark_success_endpoint(
     request: NotificationSuccessRequest = Body(...),
     session: AsyncSession = Depends(get_session)
 ):
-    """Переводит уведомления в статус success"""
-    count = await mark_notifications_success(
+    """Переводит уведомления в статус success или failed"""
+    result = await mark_notifications_success(
         session=session,
-        notification_ids=request.notification_ids
+        notification_ids=request.notification_ids,
+        failed_ids=request.failed_ids
     )
-    return {"updated_count": count}
+    return result

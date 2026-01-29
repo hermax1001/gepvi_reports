@@ -67,13 +67,13 @@ async def test_reserve_notifications_without_report(async_client, session, api_h
     notification1 = Notification(
         user_id=user_id,
         text="Test notification 1",
-        sender_method="gepvi_eat",
+        sender_method="gepvi_eat_bot",
         meta={"chat_id": "123456"}
     )
     notification2 = Notification(
         user_id=user_id,
         text="Test notification 2",
-        sender_method="gepvi_eat",
+        sender_method="gepvi_eat_bot",
         meta={"chat_id": "123456"}
     )
     notification3 = Notification(
@@ -85,17 +85,17 @@ async def test_reserve_notifications_without_report(async_client, session, api_h
     session.add_all([notification1, notification2, notification3])
     await session.commit()
 
-    # Резервируем уведомления для gepvi_eat
+    # Резервируем уведомления для gepvi_eat_bot
     response = await async_client.post(
         "/notifications/reserve",
-        json={"sender_method": "gepvi_eat", "limit": 100},
+        json={"sender_method": "gepvi_eat_bot", "limit": 100},
         headers=api_headers
     )
 
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2  # Только gepvi_eat уведомления
-    assert all(n["sender_method"] == "gepvi_eat" for n in data)
+    assert len(data) == 2  # Только gepvi_eat_bot уведомления
+    assert all(n["sender_method"] == "gepvi_eat_bot" for n in data)
     assert all(n["status"] == "in_progress" for n in data)
     assert data[0]["text"] == "Test notification 1"
     assert data[1]["text"] == "Test notification 2"
@@ -230,13 +230,105 @@ async def test_mark_notifications_success(async_client, session, api_headers):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["updated_count"] == 2
+    assert data["success_count"] == 2
+    assert data["failed_count"] == 0
 
     # Проверяем что статус изменился
     await session.refresh(notification1)
     await session.refresh(notification2)
     assert notification1.status == "success"
     assert notification2.status == "success"
+
+
+@pytest.mark.asyncio
+async def test_mark_notifications_failed(async_client, session, api_headers):
+    """Тест отметки уведомлений как failed"""
+    from app.models import Notification
+
+    user_id = uuid4()
+
+    # Создаем уведомления в статусе in_progress
+    notification1 = Notification(
+        user_id=user_id,
+        text="Test notification 1",
+        sender_method="telegram",
+        meta={},
+        status="in_progress"
+    )
+    notification2 = Notification(
+        user_id=user_id,
+        text="Test notification 2",
+        sender_method="telegram",
+        meta={},
+        status="in_progress"
+    )
+    session.add_all([notification1, notification2])
+    await session.commit()
+
+    # Отмечаем как failed
+    response = await async_client.post(
+        "/notifications/success",
+        json={"failed_ids": [notification1.id, notification2.id]},
+        headers=api_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success_count"] == 0
+    assert data["failed_count"] == 2
+
+    # Проверяем что статус изменился на failed
+    await session.refresh(notification1)
+    await session.refresh(notification2)
+    assert notification1.status == "failed"
+    assert notification2.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_mark_notifications_mixed(async_client, session, api_headers):
+    """Тест отметки уведомлений с комбинацией success и failed"""
+    from app.models import Notification
+
+    user_id = uuid4()
+
+    # Создаем уведомления в статусе in_progress
+    notification_success = Notification(
+        user_id=user_id,
+        text="Success notification",
+        sender_method="telegram",
+        meta={},
+        status="in_progress"
+    )
+    notification_failed = Notification(
+        user_id=user_id,
+        text="Failed notification",
+        sender_method="telegram",
+        meta={},
+        status="in_progress"
+    )
+    session.add_all([notification_success, notification_failed])
+    await session.commit()
+
+    # Отмечаем одну как success, другую как failed
+    response = await async_client.post(
+        "/notifications/success",
+        json={
+            "notification_ids": [notification_success.id],
+            "failed_ids": [notification_failed.id]
+        },
+        headers=api_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success_count"] == 1
+    assert data["failed_count"] == 1
+
+    # Проверяем что статусы изменились правильно
+    await session.refresh(notification_success)
+    await session.refresh(notification_failed)
+    assert notification_success.status == "success"
+    assert notification_failed.status == "failed"
 
 
 @pytest.mark.asyncio

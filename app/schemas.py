@@ -57,5 +57,6 @@ class NotificationReserveRequest(BaseModel):
 
 
 class NotificationSuccessRequest(BaseModel):
-    """Запрос на пометку уведомлений как успешных"""
-    notification_ids: list[int]
+    """Запрос на пометку уведомлений как успешных или failed"""
+    notification_ids: list[int] = []
+    failed_ids: list[int] = []

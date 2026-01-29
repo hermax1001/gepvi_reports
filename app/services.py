@@ -169,24 +169,47 @@ async def reserve_notifications(
 
 async def mark_notifications_success(
     session: AsyncSession,
-    notification_ids: List[int]
-) -> int:
-    """Переводит уведомления в статус success"""
-    stmt = (
-        update(Notification)
-        .where(Notification.id.in_(notification_ids))
-        .values(
-            status="success",
-            updated_at=datetime.now(timezone.utc)
-        )
-    )
+    notification_ids: List[int],
+    failed_ids: List[int] = None
+) -> dict:
+    """Переводит уведомления в статус success или failed"""
+    success_count = 0
+    failed_count = 0
 
-    result = await session.execute(stmt)
+    # Обрабатываем успешные уведомления
+    if notification_ids:
+        success_stmt = (
+            update(Notification)
+            .where(Notification.id.in_(notification_ids))
+            .values(
+                status="success",
+                updated_at=datetime.now(timezone.utc)
+            )
+        )
+        result = await session.execute(success_stmt)
+        success_count = result.rowcount
+        logger.info("Marked %d notifications as success", success_count)
+
+    # Обрабатываем failed уведомления
+    if failed_ids:
+        failed_stmt = (
+            update(Notification)
+            .where(Notification.id.in_(failed_ids))
+            .values(
+                status="failed",
+                updated_at=datetime.now(timezone.utc)
+            )
+        )
+        result = await session.execute(failed_stmt)
+        failed_count = result.rowcount
+        logger.info("Marked %d notifications as failed", failed_count)
+
     await session.commit()
 
-    logger.info("Marked %d notifications as success", result.rowcount)
-
-    return result.rowcount
+    return {
+        "success_count": success_count,
+        "failed_count": failed_count
+    }
 
 
 async def process_stuck_notifications(session: AsyncSession) -> None:

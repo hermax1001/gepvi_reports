@@ -50,7 +50,7 @@ class Notification(SQLModel, table=True):
     status: str = Field(
         default="new",
         nullable=False,
-        description="Статус уведомления (new/in_progress/success/error)"
+        description="Статус уведомления (new/in_progress/success/failed/error)"
     )
 
     retry_count: int = Field(
