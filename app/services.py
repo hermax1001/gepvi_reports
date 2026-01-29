@@ -196,8 +196,8 @@ async def process_stuck_notifications(session: AsyncSession) -> None:
 
     timeout_threshold = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
 
-    # Получаем провисевшие уведомления
-    stmt = select(Notification).where(
+    # Получаем только ID и retry_count провисевших уведомлений (экономия памяти)
+    stmt = select(Notification.id, Notification.retry_count).where(
         and_(
             Notification.status == "in_progress",
             Notification.updated_at < timeout_threshold
@@ -205,7 +205,7 @@ async def process_stuck_notifications(session: AsyncSession) -> None:
     )
 
     result = await session.execute(stmt)
-    stuck_notifications = result.scalars().all()
+    stuck_notifications = result.all()
 
     if not stuck_notifications:
         logger.debug("No stuck notifications found")
@@ -215,11 +215,11 @@ async def process_stuck_notifications(session: AsyncSession) -> None:
     to_retry = []
     to_error = []
 
-    for notification in stuck_notifications:
-        if notification.retry_count < max_retry_count:
-            to_retry.append(notification.id)
+    for notification_id, retry_count in stuck_notifications:
+        if retry_count < max_retry_count:
+            to_retry.append(notification_id)
         else:
-            to_error.append(notification.id)
+            to_error.append(notification_id)
 
     # Обновляем статусы батчами
     if to_retry:

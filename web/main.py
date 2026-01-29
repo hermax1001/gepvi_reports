@@ -1,6 +1,7 @@
 """FastAPI приложение для Gepvi Reports"""
 import asyncio
 import logging.config
+from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI
@@ -20,10 +21,6 @@ from app.services import process_stuck_notifications
 logging.config.dictConfig(LogsConfig.LOGGING)
 logger = logging.getLogger(__name__)
 
-# Background task для обработки провисевших уведомлений
-background_task = None
-
-
 async def notification_retry_background_job():
     """Background job для обработки провисевших уведомлений каждую минуту"""
     logger.info("Starting notification retry background job")
@@ -35,6 +32,24 @@ async def notification_retry_background_job():
             logger.error("Error in notification retry background job: %s", e, exc_info=True)
 
         await asyncio.sleep(60)  # Запускаем каждую минуту
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Управление жизненным циклом приложения"""
+    # Startup: запускаем background задачи
+    background_task = asyncio.create_task(notification_retry_background_job())
+    logger.info("Background tasks started")
+
+    yield
+
+    # Shutdown: останавливаем background задачи
+    background_task.cancel()
+    try:
+        await background_task
+    except asyncio.CancelledError:
+        logger.info("Background task cancelled")
+    logger.info("Background tasks stopped")
 
 
 # Создание FastAPI приложения
@@ -50,29 +65,9 @@ app = FastAPI(
     description="Reporting and notification service with AI-powered analysis",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Запускаем background задачи при старте приложения"""
-    global background_task
-    background_task = asyncio.create_task(notification_retry_background_job())
-    logger.info("Background tasks started")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Останавливаем background задачи при остановке приложения"""
-    global background_task
-    if background_task:
-        background_task.cancel()
-        try:
-            await background_task
-        except asyncio.CancelledError:
-            logger.info("Background task cancelled")
-    logger.info("Background tasks stopped")
 
 # Добавляем глобальный обработчик исключений
 app.add_exception_handler(Exception, global_exception_handler)
