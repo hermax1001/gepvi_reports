@@ -113,6 +113,7 @@ async def reserve_notifications(
                 Notification.sender_method == sender_method
             )
         )
+        .order_by(Notification.created_at)
         .limit(limit)
         .with_for_update(skip_locked=True)
     )
