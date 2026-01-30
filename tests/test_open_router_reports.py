@@ -62,8 +62,8 @@ async def test_generate_daily_report():
 
         # Verify daily prompt was used (check for distinctive daily phrases)
         prompt_text = payload["messages"][0]["content"]
-        assert "Under 300 words" in prompt_text
-        assert "NO long-term conclusions" in prompt_text
+        assert "Максимум 300 слов" in prompt_text
+        assert "НЕ делай долгосрочных выводов" in prompt_text
 
 
 @pytest.mark.asyncio
@@ -101,9 +101,9 @@ async def test_generate_weekly_report():
 
         # Verify weekly/monthly prompt was used
         prompt_text = payload["messages"][0]["content"]
-        assert "Under 800 words" in prompt_text
-        assert "CROSS-ANALYSIS" in prompt_text
-        assert "trends and patterns" in prompt_text
+        assert "Максимум 800 слов" in prompt_text
+        assert "АНАЛИЗ ПАТТЕРНОВ" in prompt_text
+        assert "тренды по дням" in prompt_text
 
 
 @pytest.mark.asyncio

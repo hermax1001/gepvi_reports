@@ -1,7 +1,7 @@
 """Бизнес-логика для управления отчетами, задачами и уведомлениями"""
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Tuple, Dict, Any
 from uuid import UUID
 
 import httpx
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Report, Notification
 from app.schemas import ReportResponse, NotificationResponse
-from app.utils.error_handler import ValidationError
+from app.utils.error_handler import ValidationError, ReportNoDataError
 from clients.gepvi_eat_client import gepvi_eat_client
 from clients.open_router import open_router_client
 from settings.config import AppConfig
@@ -19,6 +19,54 @@ logger = logging.getLogger(__name__)
 
 
 # Report services
+async def get_report_data(
+    user_id: UUID,
+    start_date: datetime,
+    end_date: datetime,
+    period: str
+) -> Tuple[Dict[Any, Any], str, datetime, datetime]:
+    """
+    Получает данные для отчета с умной валидацией и автокорректировкой периода.
+
+    Returns:
+        Tuple of (report_data, adjusted_period, adjusted_start_date, adjusted_end_date)
+    """
+    # Получаем данные от gepvi_eat
+    report_data = await gepvi_eat_client.get_user_report_data(user_id, start_date, end_date)
+    if not report_data or not report_data.get("meal_components_by_day"):
+        raise ReportNoDataError("Insufficient data for report. No meals found in this period.")
+
+    # Логика валидации и перезапроса
+    if period == "month" and len(report_data.get("meal_components_by_day", [])) < 10:
+
+        # Пробуем недельный: последние 7 дней от end_date назад
+        new_start_date = end_date - timedelta(days=7)  # 7 дней включая end_date
+        logger.info("Retrying with weekly period: %s to %s", new_start_date.isoformat(), end_date.isoformat())
+        period = "week"
+
+        # Получаем данные от gepvi_eat
+        report_data = await gepvi_eat_client.get_user_report_data(user_id, start_date, end_date)
+        if not report_data or not report_data.get("meal_components_by_day"):
+            raise ReportNoDataError("Insufficient data for report. No meals found in this period.")
+
+
+    if period == "week" and len(report_data.get("meal_components_by_day", [])) < 3:
+        new_start_date = end_date - timedelta(days=1)  # 7 дней включая end_date
+        logger.info("Retrying with weekly period: %s to %s", new_start_date.isoformat(), end_date.isoformat())
+        period = "day"
+
+        # Получаем данные от gepvi_eat
+        report_data = await gepvi_eat_client.get_user_report_data(user_id, start_date, end_date)
+        if not report_data or not report_data.get("meal_components_by_day"):
+            raise ReportNoDataError("Insufficient data for report. No meals found in this period.")
+
+    if period == "day" and len(report_data.get("meal_components_by_day", [])) < 1:
+        raise ReportNoDataError("Insufficient data for report. No meals found in this period.")
+
+    # Данных достаточно для запрошенного периода
+    return report_data, period, start_date, end_date
+
+
 async def get_reports_by_user_id(
     session: AsyncSession,
     user_id: UUID
@@ -56,41 +104,31 @@ async def create_report_with_notification(
     if period not in ("day", "week", "month"):
         raise ValidationError(f"Invalid period: {period}. Must be day, week, or month")
 
-    report_data = await gepvi_eat_client.get_user_report_data(user_id, start_date, end_date)
+    original_period = period
 
-    # Validate data exists
-    if not report_data or not report_data.get("meal_components_by_day"):
-        raise ValidationError("Insufficient data for report. No meals found in this period.")
+    # Get report data with smart validation and period adjustment
+    report_data, adjusted_period, adjusted_start_date, adjusted_end_date = await get_report_data(
+        user_id=user_id,
+        start_date=start_date,
+        end_date=end_date,
+        period=period
+    )
 
     # Extract data
     user_goals = report_data.get("user_macros_goals", {})
     summary = report_data.get("summary", {})
     daily_components = report_data.get("meal_components_by_day", [])
-
-    # Auto-adjust period based on available data
     days_count = len(daily_components)
-    original_period = period
 
-    if period == "month" and days_count < 10:
-        logger.warning("Requested monthly report but only %d days available. Downgrading to weekly.", days_count)
-        period = "week"
-
-    if period == "week" and days_count < 3:
-        logger.warning("Requested weekly report but only %d days available. Downgrading to daily.", days_count)
-        period = "day"
-
-    if period == "day" and days_count < 1:
-        raise ValidationError("Insufficient data for report. At least 1 day of data is required.")
-
-    if original_period != period:
-        logger.info("Period adjusted from %s to %s based on available data (%d days)", original_period, period, days_count)
+    if original_period != adjusted_period:
+        logger.info("Period adjusted from %s to %s based on available data (%d days)", original_period, adjusted_period, days_count)
 
     # Generate AI report
     try:
         report_text = await open_router_client.generate_report(
-            period=period,
-            start_date=start_date,
-            end_date=end_date,
+            period=adjusted_period,
+            start_date=adjusted_start_date,
+            end_date=adjusted_end_date,
             user_goals=user_goals,
             summary=summary,
             daily_components=daily_components
@@ -102,7 +140,7 @@ async def create_report_with_notification(
     # Save report to database
     report = Report(
         user_id=user_id,
-        report_type=period,
+        report_type=adjusted_period,
         result=report_text
     )
     session.add(report)
@@ -115,11 +153,11 @@ async def create_report_with_notification(
         sender_method=sender_method,
         report_id=report.id,
         meta={
-            "report_start_date": start_date.isoformat(),
-            "report_end_date": end_date.isoformat(),
+            "period": adjusted_period,
+            "start_date": adjusted_start_date.isoformat(),
+            "end_date": adjusted_end_date.isoformat(),
             "original_period": original_period,
-            "adjusted_period": period,
-            "days_count": days_count
+            "days_count": days_count,
         }
     )
     session.add(notification)

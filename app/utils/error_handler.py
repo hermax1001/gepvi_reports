@@ -27,6 +27,12 @@ class ValidationError(APIError):
         super().__init__(message, status_code=400, details=details)
 
 
+class ReportNoDataError(APIError):
+    """Ошибка отсутсвия данных для репорта"""
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, status_code=400, details=details)
+
+
 class NotFoundError(APIError):
     """Ошибка "не найдено" """
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):

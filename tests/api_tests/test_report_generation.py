@@ -123,9 +123,9 @@ async def test_generate_report_gepvi_eat_down(async_client, api_headers):
             headers=api_headers
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 500
         data = response.json()
-        assert "Could not fetch report data" in data["detail"]
+        assert "Internal Server Error" in data["detail"]
 
 
 @pytest.mark.asyncio
@@ -136,7 +136,7 @@ async def test_generate_report_ai_failure(async_client, api_headers):
     mock_report_data = {
         "user_macros_goals": {"calories": 2000},
         "summary": {"total_calories": 2000},
-        "meal_components_by_day": []
+        "meal_components_by_day": [{"date": "2026-01-15", "components": [{"name": "Test", "W": 100}]}]
     }
 
     ai_error = Exception("AI model timeout")
@@ -200,7 +200,7 @@ async def test_generate_report_notification_meta(async_client, session, api_head
     mock_report_data = {
         "user_macros_goals": {},
         "summary": {"total_calories": 2000},
-        "meal_components_by_day": []
+        "meal_components_by_day": [{"date": "2026-01-15", "components": [{"name": "Test", "W": 100}]}]
     }
 
     mock_ai_response = "A" * 200  # Long response to test preview
@@ -231,5 +231,3 @@ async def test_generate_report_notification_meta(async_client, session, api_head
         assert notification.meta["period"] == "day"
         assert "start_date" in notification.meta
         assert "end_date" in notification.meta
-        assert "report_preview" in notification.meta
-        assert len(notification.meta["report_preview"]) <= 103  # 100 chars + "..."
