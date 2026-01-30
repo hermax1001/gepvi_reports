@@ -62,7 +62,7 @@ async def test_generate_daily_report():
 
         # Verify daily prompt was used (check for distinctive daily phrases)
         prompt_text = payload["messages"][0]["content"]
-        assert "Максимум 350 слов" in prompt_text
+        assert "Максимум 250 слов" in prompt_text
         assert "НЕ делай долгосрочных выводов" in prompt_text
 
 
@@ -101,7 +101,7 @@ async def test_generate_weekly_report():
 
         # Verify weekly/monthly prompt was used
         prompt_text = payload["messages"][0]["content"]
-        assert "Максимум 900 слов" in prompt_text
+        assert "Максимум 700 слов" in prompt_text
         assert "АНАЛИЗ ПАТТЕРНОВ" in prompt_text
         assert "тренды по дням" in prompt_text
 
@@ -196,7 +196,7 @@ async def test_generate_report_parameters():
         payload = call_args[1]["json"]
 
         # Verify correct parameters
-        assert payload["max_tokens"] == 2500
+        assert payload["max_tokens"] == 2000
         assert payload["temperature"] == 0.5
         assert "model" in payload
         assert "messages" in payload
