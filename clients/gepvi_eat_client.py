@@ -14,7 +14,7 @@ class GepviEatClient:
     """Client for gepvi_eat microservice"""
 
     def __init__(self):
-        self.base_url = AppConfig.GEPVI_EAT_SERVICE_URL
+        self.base_url = AppConfig.EAT_SERVICE_URL
         self.timeout = 30.0
         self.api_key = AppConfig.API_KEY
 

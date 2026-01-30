@@ -28,7 +28,7 @@ class Settings:
 
         # External Services
         self.USERS_SERVICE_URL: str = env.str("USERS_SERVICE_URL", "http://localhost:8001")
-        self.GEPVI_EAT_SERVICE_URL: str = env.str("GEPVI_EAT_SERVICE_URL", "http://localhost:8000")
+        self.EAT_SERVICE_URL: str = env.str("EAT_SERVICE_URL", "http://localhost:8000")
 
         # OpenRouter AI
         self.OPENROUTER_API_KEY: str = env.str("OPENROUTER_API_KEY", "")
