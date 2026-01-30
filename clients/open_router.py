@@ -16,9 +16,9 @@ DAILY_REPORT_PROMPT = """Ты — аналитик по питанию. Сген
 
 СТРУКТУРА ОТВЕТА (ОБЯЗАТЕЛЬНАЯ):
 1. Приветствие: "Ваш {period_ru} отчёт готов!"
-2. СТАТИСТИКА (краткая сводка: калории, белки, жиры, углеводы, клетчатка, жидкость)
-3. ЦЕЛИ (если есть цели пользователя: сравни факт с целями, укажи достигнуты ли цели)
-4. КРАТКИЙ ВЫВОД (1-2 наблюдения о качестве питания)
+2. СТАТИСТИКА С ЦЕЛЯМИ (объединенная сводка: показывай факт, цель и % выполнения для калорий, белков, жиров, углеводов, клетчатки, жидкости)
+3. ИНТЕРЕСНЫЕ ДЕТАЛИ (что конкретно ел: выдели необычные продукты, большие объемы конкретных продуктов с комментариями)
+4. КРАТКИЙ ВЫВОД (1-2 наблюдения о качестве питания с учетом цели пользователя)
 
 КРИТИЧЕСКИ ВАЖНЫЕ ИНСТРУКЦИИ:
 - Пиши на русском языке, дружелюбным тоном
@@ -27,7 +27,9 @@ DAILY_REPORT_PROMPT = """Ты — аналитик по питанию. Сген
 - Основывайся на научных данных о питании
 - Будь осторожен с рекомендациями - предлагай мягкие корректировки, не радикальные изменения
 - Оцени компоненты на предмет содержания витаминов/минералов (например: много овощей = хорошие витамины)
-- Максимум 300 слов
+- ОБЯЗАТЕЛЬНО учитывай цель пользователя (похудеть/набрать/поддержать вес) при оценке выполнения целей
+- Анализируй конкретные продукты и их количество - давай интересные факты и комментарии
+- Максимум 350 слов
 
 ФОРМАТ HTML-РАЗМЕТКИ:
 ВАЖНО: Если хочешь разметить текст, используй ТОЛЬКО следующие HTML теги:
@@ -38,7 +40,13 @@ DAILY_REPORT_PROMPT = """Ты — аналитик по питанию. Сген
 ЗАПРЕЩЕНО использовать: <h1>, <h2>, <h3>, <h4>, <h5>, <h6>, <p>, <div>, <span>, <br>, <hr> и любые другие теги!
 Если нужно разделить абзацы - используй двойной перенос строки (\n\n)
 
-ДАННЫЕ О ПИТАНИИ ПОЛЬЗОВАТЕЛЯ ЗА ПЕРИОД:
+ДАННЫЕ О ПОЛЬЗОВАТЕЛЕ:
+{user_profile}
+
+ЦЕЛЬ ПОЛЬЗОВАТЕЛЯ (на основе данных профиля и целей):
+{user_goal_type}
+
+ДАННЫЕ О ПИТАНИИ ЗА ПЕРИОД:
 Период: {start_date} до {end_date}
 Дней с данными: {days_count}
 
@@ -57,11 +65,11 @@ WEEKLY_MONTHLY_REPORT_PROMPT = """Ты — аналитик по питанию.
 
 СТРУКТУРА ОТВЕТА (ОБЯЗАТЕЛЬНАЯ):
 1. Приветствие: "Ваш {period_ru} отчёт готов!"
-2. СТАТИСТИКА (общие показатели и средние значения: калории, белки, жиры, углеводы, клетчатка, жидкость)
-3. ЦЕЛИ (если есть цели пользователя: детальное сравнение факта с целями, рассчитай % выполнения)
-4. АНАЛИЗ ПАТТЕРНОВ (ищи тренды по дням: постоянство питания, время приёмов пищи, разнообразие продуктов)
+2. СТАТИСТИКА С ЦЕЛЯМИ (объединенная сводка: показывай факт, цель и % выполнения для калорий, белков, жиров, углеводов, клетчатки, жидкости)
+3. ИНТЕРЕСНЫЕ ДЕТАЛИ РАЦИОНА (анализ конкретных продуктов: что ел чаще всего, необычные продукты, большие объемы конкретных продуктов - давай интересные факты и комментарии о пользе/вреде)
+4. АНАЛИЗ ПАТТЕРНОВ (ищи тренды по дням: постоянство питания, разнообразие продуктов, баланс по дням)
 5. ИНСАЙТЫ (2-4 наблюдения на основе научных данных о качестве питания, достаточности витаминов/минералов на основе компонентов)
-6. РЕКОМЕНДАЦИИ (1-2 мягких, выполнимых совета - НЕ медицинские назначения)
+6. РЕКОМЕНДАЦИИ (1-2 мягких, выполнимых совета с учетом цели пользователя - НЕ медицинские назначения)
 
 КРИТИЧЕСКИ ВАЖНЫЕ ИНСТРУКЦИИ:
 - Пиши на русском языке, профессиональным но дружелюбным тоном
@@ -69,10 +77,12 @@ WEEKLY_MONTHLY_REPORT_PROMPT = """Ты — аналитик по питанию.
 - Ты можешь только анализировать данные о питании и давать общие инсайты
 - Основывай все инсайты на научных исследованиях в области питания
 - При предложении изменений используй мягкие формулировки: "можно попробовать", "стоит рассмотреть", НЕ "вам необходимо"
-- Анализируй компоненты на предмет содержания микронутриентов и разнообразия продуктов.
+- ОБЯЗАТЕЛЬНО учитывай цель пользователя (похудеть/набрать/поддержать вес) при оценке выполнения целей и рекомендациях
+- Анализируй компоненты на предмет содержания микронутриентов и разнообразия продуктов
 - Оцени компоненты на микронутриенты: овощи→витамины, молочное→кальций, мясо→B12 и т.д.
+- ОБЯЗАТЕЛЬНО анализируй конкретные продукты и их объемы - давай интересные факты (например: "Вы съели 1кг тунца за неделю - отличный источник омега-3 и белка!")
 - Ищи паттерны: постоянство приёмов пищи, разнообразие продуктов, баланс по дням
-- Максимум 800 слов
+- Максимум 900 слов
 - Если данных мало (несколько дней), упомяни ограничения анализа
 
 ФОРМАТ HTML-РАЗМЕТКИ:
@@ -84,7 +94,13 @@ WEEKLY_MONTHLY_REPORT_PROMPT = """Ты — аналитик по питанию.
 ЗАПРЕЩЕНО использовать: <h1>, <h2>, <h3>, <h4>, <h5>, <h6>, <p>, <div>, <span>, <br>, <hr> и любые другие теги!
 Если нужно разделить абзацы - используй двойной перенос строки (\n\n)
 
-ДАННЫЕ О ПИТАНИИ ПОЛЬЗОВАТЕЛЯ ЗА ПЕРИОД:
+ДАННЫЕ О ПОЛЬЗОВАТЕЛЕ:
+{user_profile}
+
+ЦЕЛЬ ПОЛЬЗОВАТЕЛЯ (на основе данных профиля и целей):
+{user_goal_type}
+
+ДАННЫЕ О ПИТАНИИ ЗА ПЕРИОД:
 Период: {start_date} до {end_date}
 Дней с данными: {days_count}
 
@@ -303,6 +319,103 @@ class OpenRouterClient:
 
         return "\n".join(lines)
 
+    def _format_user_profile(self, user_info: dict) -> str:
+        """Format user profile data in readable format"""
+        if not user_info:
+            return "Данные профиля не заполнены. Рекомендуем заполнить профиль для более точного анализа."
+
+        lines = []
+        has_data = False
+
+        # Age from yob
+        if user_info.get("yob"):
+            age = datetime.now().year - user_info["yob"]
+            lines.append(f"Возраст: {age} лет")
+            has_data = True
+
+        # Gender
+        if user_info.get("gender"):
+            gender_ru = "Мужской" if user_info["gender"] == "m" else "Женский"
+            lines.append(f"Пол: {gender_ru}")
+            has_data = True
+
+        # Weight
+        if user_info.get("weight"):
+            lines.append(f"Вес: {user_info['weight']} кг")
+            has_data = True
+
+        # Height
+        if user_info.get("height"):
+            lines.append(f"Рост: {user_info['height']} см")
+            has_data = True
+
+        # Activity level
+        if user_info.get("activity_level"):
+            activity = user_info["activity_level"]
+            if activity <= 1.2:
+                activity_ru = "Минимальная"
+            elif activity <= 1.37:
+                activity_ru = "Легкая"
+            elif activity <= 1.55:
+                activity_ru = "Средняя"
+            elif activity <= 1.73:
+                activity_ru = "Высокая"
+            else:
+                activity_ru = "Экстремальная"
+            lines.append(f"Активность: {activity_ru}")
+            has_data = True
+
+        if not has_data:
+            return "Данные профиля не заполнены. Рекомендуем заполнить профиль для более точного анализа."
+
+        return "\n".join(lines)
+
+    def _calculate_bmr(self, weight: float, height: int, yob: int, gender: str) -> int:
+        """Calculate Basal Metabolic Rate using Mifflin-St Jeor formula"""
+        age = datetime.now().year - yob
+
+        if gender == "m":
+            bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
+        else:
+            bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161
+
+        return int(bmr)
+
+    def _determine_user_goal_type(self, user_info: dict, user_goals: dict) -> str:
+        """Determine if user wants to lose/gain/maintain weight based on profile and goals"""
+        # Check if we have all required data
+        required_fields = ["weight", "height", "yob", "gender", "activity_level"]
+        if not all(user_info.get(field) for field in required_fields):
+            if user_goals.get("calories"):
+                return "Цель по калориям установлена, но без данных профиля невозможно определить цель (похудеть/набрать/поддержать вес). Рекомендуем заполнить профиль."
+            return "Данные профиля не заполнены, невозможно определить цель. Рекомендуем заполнить профиль для более точного анализа."
+
+        # Check if user has calorie goal
+        if not user_goals.get("calories"):
+            return "Цель по калориям не установлена, невозможно определить цель (похудеть/набрать/поддержать вес)."
+
+        # Calculate maintenance calories
+        bmr = self._calculate_bmr(
+            weight=user_info["weight"],
+            height=user_info["height"],
+            yob=user_info["yob"],
+            gender=user_info["gender"]
+        )
+        maintenance_calories = bmr * user_info["activity_level"]
+        calorie_goal = user_goals["calories"]
+
+        # Determine goal with tolerance of 100 kcal
+        deficit = maintenance_calories - calorie_goal
+        if deficit > 100:
+            deficit_percent = (deficit / maintenance_calories) * 100
+            return f"Похудеть (дефицит {deficit:.0f} ккал/день или {deficit_percent:.1f}% от нормы поддержания веса)"
+        elif deficit < -100:
+            surplus = abs(deficit)
+            surplus_percent = (surplus / maintenance_calories) * 100
+            return f"Набрать вес (профицит {surplus:.0f} ккал/день или {surplus_percent:.1f}% от нормы поддержания веса)"
+        else:
+            return "Поддержать вес (цель примерно соответствует норме поддержания веса)"
+
     async def generate_report(
         self,
         period: str,
@@ -310,7 +423,8 @@ class OpenRouterClient:
         end_date: datetime,
         user_goals: dict,
         summary: dict,
-        daily_components: list
+        daily_components: list,
+        user_info: dict = None
     ) -> str:
         """Generate AI report in Russian based on gepvi_eat data"""
         # Choose prompt based on period
@@ -331,6 +445,8 @@ class OpenRouterClient:
         user_goals_str = self._format_user_goals(user_goals)
         summary_str = self._format_summary(summary)
         components_str = self._format_components_compact(daily_components)
+        user_profile_str = self._format_user_profile(user_info or {})
+        user_goal_type_str = self._determine_user_goal_type(user_info or {}, user_goals)
 
         prompt = prompt_template.format(
             period=period,
@@ -340,14 +456,16 @@ class OpenRouterClient:
             days_count=days_count,
             user_goals=user_goals_str,
             summary=summary_str,
-            daily_components=components_str
+            daily_components=components_str,
+            user_profile=user_profile_str,
+            user_goal_type=user_goal_type_str
         )
 
         # Make API call
         payload = {
             "model": self.primary_model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 2000,
+            "max_tokens": 2500,
             "temperature": 0.5
         }
 

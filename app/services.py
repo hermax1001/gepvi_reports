@@ -12,6 +12,7 @@ from app.models import Report, Notification
 from app.schemas import ReportResponse, NotificationResponse
 from app.utils.error_handler import ValidationError, ReportNoDataError
 from clients.gepvi_eat_client import gepvi_eat_client
+from clients.gepvi_users_client import gepvi_users_client
 from clients.open_router import open_router_client
 from settings.config import AppConfig
 
@@ -123,6 +124,22 @@ async def create_report_with_notification(
     if original_period != adjusted_period:
         logger.info("Period adjusted from %s to %s based on available data (%d days)", original_period, adjusted_period, days_count)
 
+    # Get user info for personalized report
+    user_info = {}
+    try:
+        user_data = await gepvi_users_client.get_user_by_user_id(user_id)
+        user_info = {
+            "yob": user_data.get("yob"),
+            "weight": user_data.get("weight"),
+            "gender": user_data.get("gender"),
+            "height": user_data.get("height"),
+            "activity_level": user_data.get("activity_level")
+        }
+        logger.debug("Retrieved user info for report: %s", user_info)
+    except Exception as e:
+        logger.warning("Could not retrieve user info for report: %s", e)
+        # Continue without user info - report will note that profile is not filled
+
     # Generate AI report
     try:
         report_text = await open_router_client.generate_report(
@@ -131,7 +148,8 @@ async def create_report_with_notification(
             end_date=adjusted_end_date,
             user_goals=user_goals,
             summary=summary,
-            daily_components=daily_components
+            daily_components=daily_components,
+            user_info=user_info
         )
     except Exception as e:
         logger.error("Failed to generate AI report: %s", e)
