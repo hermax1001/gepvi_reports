@@ -10,112 +10,91 @@ logger = logging.getLogger(__name__)
 
 
 # AI Prompts for Report Generation
-DAILY_REPORT_PROMPT = """You are a nutrition analyst. Generate a brief daily report in Russian.
+DAILY_REPORT_PROMPT = """Ты — аналитик по питанию. Сгенерируй краткий дневной отчёт на русском языке.
 
-STRUCTURE (MANDATORY):
-1. Greeting: "Ваш дневной отчет готов!"
-2. СТАТИСТИКА (brief summary of calories, protein, fats, carbs, fiber, liquid)
-3. ЦЕЛИ (if user_macros_goals exist: compare actual vs goals, mention if goals are met or not)
-4. КРАТКИЙ ВЫВОД (1-2 observations about nutrition quality)
+ВАЖНО: Отчёт будет отправлен пользователю в Telegram сообщением.
 
-CRITICAL INSTRUCTIONS:
-- Write in Russian, friendly tone
-- This is ONLY ONE DAY - do NOT make long-term conclusions or big recommendations
-- You are NOT a doctor - do NOT diagnose or prescribe treatment
-- Base insights on scientific nutrition data
-- Be careful with recommendations - suggest mild adjustments, not radical changes
-- Assess components for likely vitamin/mineral content (e.g., много овощей = хорошие витамины)
-- Under 300 words
+СТРУКТУРА ОТВЕТА (ОБЯЗАТЕЛЬНАЯ):
+1. Приветствие: "Ваш дневной отчёт готов!"
+2. СТАТИСТИКА (краткая сводка: калории, белки, жиры, углеводы, клетчатка, жидкость)
+3. ЦЕЛИ (если есть цели пользователя: сравни факт с целями, укажи достигнуты ли цели)
+4. КРАТКИЙ ВЫВОД (1-2 наблюдения о качестве питания)
 
-DATA EXPLANATION:
-USER MACROS GOALS (may be missing or partially filled):
-- calories: daily calorie goal
-- protein: daily protein goal (grams)
-- fats: daily fats goal (grams)
-- carbs: daily carbs goal (grams)
-- fiber: daily fiber goal (grams)
-- liquid: daily liquid goal (ml)
+КРИТИЧЕСКИ ВАЖНЫЕ ИНСТРУКЦИИ:
+- Пиши на русском языке, дружелюбным тоном
+- Это ВСЕГО ОДИН ДЕНЬ - НЕ делай долгосрочных выводов или больших рекомендаций
+- Ты НЕ врач - НЕ ставь диагнозы и НЕ назначай лечение
+- Основывайся на научных данных о питании
+- Будь осторожен с рекомендациями - предлагай мягкие корректировки, не радикальные изменения
+- Оцени компоненты на предмет содержания витаминов/минералов (например: много овощей = хорошие витамины)
+- Максимум 300 слов
 
-SUMMARY STATISTICS:
-- total_calories, total_protein, total_fats, total_carbs, total_fiber, total_liquid
-- average_per_day (for multi-day periods)
-- meals_count
-- breakdown_by_type (breakfast, lunch, dinner, snack)
+ФОРМАТ HTML-РАЗМЕТКИ:
+ВАЖНО: Если хочешь разметить текст, используй ТОЛЬКО следующие HTML теги:
+- <b>жирный текст</b> или <strong>жирный текст</strong>
+- <i>курсив</i> или <em>курсив</em>
+- <u>подчёркнутый</u>
 
-DAILY COMPONENTS:
-For each day: date + list of components with:
-- name: component name
-- W: weight in grams
-- L: liquid volume in ml
+ЗАПРЕЩЕНО использовать: <h1>, <h2>, <h3>, <h4>, <h5>, <h6>, <p>, <div>, <span>, <br>, <hr> и любые другие теги!
+Если нужно разделить абзацы - используй двойной перенос строки (\n\n)
 
-Period: {start_date} to {end_date}
-Days with data: {days_count}
+ДАННЫЕ О ПИТАНИИ ПОЛЬЗОВАТЕЛЯ ЗА ПЕРИОД:
+Период: {start_date} до {end_date}
+Дней с данными: {days_count}
 
-User Goals:
-{user_goals}
+Цели пользователя (могут отсутствовать):{user_goals}
 
-Summary:
+Сводная статистика (саммари за период):
 {summary}
 
-Daily Components:
+Что пользователь ел по дням:
 {daily_components}
 """
 
-WEEKLY_MONTHLY_REPORT_PROMPT = """You are a nutrition analyst. Generate a detailed {period} report in Russian.
+WEEKLY_MONTHLY_REPORT_PROMPT = """Ты — аналитик по питанию. Сгенерируй подробный {period_ru} отчёт на русском языке.
 
-STRUCTURE (MANDATORY):
-1. Greeting: "Ваш {period_ru} отчет готов!"
-2. СТАТИСТИКА (raw numbers: totals and averages for calories, protein, fats, carbs, fiber, liquid)
-3. ЦЕЛИ (if user_macros_goals exist: detailed comparison actual vs goals, calculate % achievement)
-4. АНАЛИЗ ПАТТЕРНОВ (look for trends across days: consistent eating, meal timing, food variety)
-5. ИНСАЙТЫ (2-4 evidence-based observations about nutrition quality, vitamin/mineral adequacy based on components)
-6. РЕКОМЕНДАЦИИ (1-2 mild, actionable suggestions - NOT medical advice)
+ВАЖНО: Отчёт будет отправлен пользователю в Telegram сообщением.
 
-CRITICAL INSTRUCTIONS:
-- Write in Russian, professional but friendly tone
-- You are NOT a doctor - do NOT diagnose, prescribe treatment, or give medical advice
-- You can only analyze nutrition data and provide general insights
-- Base all insights on scientific nutrition research
-- When suggesting changes, use soft language: "можно попробовать", "стоит рассмотреть", NOT "вам необходимо"
-- Assess components for micronutrients: vegetables→vitamins, dairy→calcium, meat→B12, etc.
-- Look for patterns: meal consistency, food variety, balance across days
-- Under 800 words
-- If data is incomplete (few days), mention limitations of analysis
+СТРУКТУРА ОТВЕТА (ОБЯЗАТЕЛЬНАЯ):
+1. Приветствие: "Ваш {period_ru} отчёт готов!"
+2. СТАТИСТИКА (общие показатели и средние значения: калории, белки, жиры, углеводы, клетчатка, жидкость)
+3. ЦЕЛИ (если есть цели пользователя: детальное сравнение факта с целями, рассчитай % выполнения)
+4. АНАЛИЗ ПАТТЕРНОВ (ищи тренды по дням: постоянство питания, время приёмов пищи, разнообразие продуктов)
+5. ИНСАЙТЫ (2-4 наблюдения на основе научных данных о качестве питания, достаточности витаминов/минералов на основе компонентов)
+6. РЕКОМЕНДАЦИИ (1-2 мягких, выполнимых совета - НЕ медицинские назначения)
 
-DATA EXPLANATION:
-USER MACROS GOALS (may be missing or partially filled):
-- calories: daily calorie goal
-- protein: daily protein goal (grams)
-- fats: daily fats goal (grams)
-- carbs: daily carbs goal (grams)
-- fiber: daily fiber goal (grams)
-- liquid: daily liquid goal (ml)
+КРИТИЧЕСКИ ВАЖНЫЕ ИНСТРУКЦИИ:
+- Пиши на русском языке, профессиональным но дружелюбным тоном
+- Ты НЕ врач - НЕ ставь диагнозы, НЕ назначай лечение, НЕ давай медицинских советов
+- Ты можешь только анализировать данные о питании и давать общие инсайты
+- Основывай все инсайты на научных исследованиях в области питания
+- При предложении изменений используй мягкие формулировки: "можно попробовать", "стоит рассмотреть", НЕ "вам необходимо"
+- Анализируй компоненты на предмет содержания микронутриентов и разнообразия продуктов.
+- Оцени компоненты на микронутриенты: овощи→витамины, молочное→кальций, мясо→B12 и т.д.
+- Ищи паттерны: постоянство приёмов пищи, разнообразие продуктов, баланс по дням
+- Максимум 800 слов
+- Если данных мало (несколько дней), упомяни ограничения анализа
 
-SUMMARY STATISTICS:
-- total_calories, total_protein, total_fats, total_carbs, total_fiber, total_liquid
-- average_per_day (average daily values)
-- meals_count (total meals in period)
-- breakdown_by_type (breakfast, lunch, dinner, snack with totals for each)
-- macronutrients: totals + protein_percent, fats_percent, carbs_percent
+ФОРМАТ HTML-РАЗМЕТКИ:
+ВАЖНО: Если хочешь разметить текст, используй ТОЛЬКО следующие HTML теги:
+- <b>жирный текст</b> или <strong>жирный текст</strong>
+- <i>курсив</i> или <em>курсив</em>
+- <u>подчёркнутый</u>
 
-DAILY COMPONENTS:
-For each day: date + list of components with:
-- name: component name in Russian
-- W: weight in grams (solid food)
-- L: liquid volume in ml (drinks)
+ЗАПРЕЩЕНО использовать: <h1>, <h2>, <h3>, <h4>, <h5>, <h6>, <p>, <div>, <span>, <br>, <hr> и любые другие теги!
+Если нужно разделить абзацы - используй двойной перенос строки (\n\n)
 
-Analyze components for likely micronutrient content and food diversity.
+ДАННЫЕ О ПИТАНИИ ПОЛЬЗОВАТЕЛЯ ЗА ПЕРИОД:
+Период: {start_date} до {end_date}
+Дней с данными: {days_count}
 
-Period: {start_date} to {end_date}
-Days with data: {days_count}
-
-User Goals:
+Цели пользователя (могут отсутствовать):
 {user_goals}
 
-Summary:
+Сводная статистика (саммари за период):
 {summary}
 
-Daily Components:
+Что пользователь ел по дням:
 {daily_components}
 """
 
@@ -306,7 +285,21 @@ class OpenRouterClient:
             for meal_type, meal_name in meal_names.items():
                 if meal_type in breakdown:
                     meal_data = breakdown[meal_type]
-                    lines.append(f"  {meal_name}: {meal_data.get('calories', 0)} ккал")
+                    meal_line = f"  {meal_name}: {meal_data.get('calories', 0)} ккал"
+
+                    # Add macros if available
+                    macros_parts = []
+                    if "protein" in meal_data:
+                        macros_parts.append(f"Б: {meal_data['protein']}г")
+                    if "fats" in meal_data:
+                        macros_parts.append(f"Ж: {meal_data['fats']}г")
+                    if "carbs" in meal_data:
+                        macros_parts.append(f"У: {meal_data['carbs']}г")
+
+                    if macros_parts:
+                        meal_line += f" ({', '.join(macros_parts)})"
+
+                    lines.append(meal_line)
 
         return "\n".join(lines)
 
