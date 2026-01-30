@@ -67,6 +67,24 @@ async def create_report_with_notification(
     summary = report_data.get("summary", {})
     daily_components = report_data.get("meal_components_by_day", [])
 
+    # Auto-adjust period based on available data
+    days_count = len(daily_components)
+    original_period = period
+
+    if period == "month" and days_count < 10:
+        logger.warning("Requested monthly report but only %d days available. Downgrading to weekly.", days_count)
+        period = "week"
+
+    if period == "week" and days_count < 3:
+        logger.warning("Requested weekly report but only %d days available. Downgrading to daily.", days_count)
+        period = "day"
+
+    if period == "day" and days_count < 1:
+        raise ValidationError("Insufficient data for report. At least 1 day of data is required.")
+
+    if original_period != period:
+        logger.info("Period adjusted from %s to %s based on available data (%d days)", original_period, period, days_count)
+
     # Generate AI report
     try:
         report_text = await open_router_client.generate_report(
@@ -99,6 +117,9 @@ async def create_report_with_notification(
         meta={
             "report_start_date": start_date.isoformat(),
             "report_end_date": end_date.isoformat(),
+            "original_period": original_period,
+            "adjusted_period": period,
+            "days_count": days_count
         }
     )
     session.add(notification)

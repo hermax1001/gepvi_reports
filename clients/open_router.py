@@ -12,47 +12,111 @@ logger = logging.getLogger(__name__)
 # AI Prompts for Report Generation
 DAILY_REPORT_PROMPT = """You are a nutrition analyst. Generate a brief daily report in Russian.
 
-USER DATA:
-- Period: {start_date} to {end_date}
-- Goals: {user_goals}
+STRUCTURE (MANDATORY):
+1. Greeting: "Ваш дневной отчет готов!"
+2. СТАТИСТИКА (brief summary of calories, protein, fats, carbs, fiber, liquid)
+3. ЦЕЛИ (if user_macros_goals exist: compare actual vs goals, mention if goals are met or not)
+4. КРАТКИЙ ВЫВОД (1-2 observations about nutrition quality)
 
-NUTRITION SUMMARY:
+CRITICAL INSTRUCTIONS:
+- Write in Russian, friendly tone
+- This is ONLY ONE DAY - do NOT make long-term conclusions or big recommendations
+- You are NOT a doctor - do NOT diagnose or prescribe treatment
+- Base insights on scientific nutrition data
+- Be careful with recommendations - suggest mild adjustments, not radical changes
+- Assess components for likely vitamin/mineral content (e.g., много овощей = хорошие витамины)
+- Under 300 words
+
+DATA EXPLANATION:
+USER MACROS GOALS (may be missing or partially filled):
+- calories: daily calorie goal
+- protein: daily protein goal (grams)
+- fats: daily fats goal (grams)
+- carbs: daily carbs goal (grams)
+- fiber: daily fiber goal (grams)
+- liquid: daily liquid goal (ml)
+
+SUMMARY STATISTICS:
+- total_calories, total_protein, total_fats, total_carbs, total_fiber, total_liquid
+- average_per_day (for multi-day periods)
+- meals_count
+- breakdown_by_type (breakfast, lunch, dinner, snack)
+
+DAILY COMPONENTS:
+For each day: date + list of components with:
+- name: component name
+- W: weight in grams
+- L: liquid volume in ml
+
+Period: {start_date} to {end_date}
+Days with data: {days_count}
+
+User Goals:
+{user_goals}
+
+Summary:
 {summary}
 
-DAILY BREAKDOWN:
+Daily Components:
 {daily_components}
-
-INSTRUCTIONS:
-- Write in Russian, friendly tone
-- Start with raw statistics (calories, protein, fats, carbs)
-- Provide 1-2 short observations
-- Give 1 brief recommendation
-- Under 300 words
-- NO long-term conclusions (just one day)
 """
 
 WEEKLY_MONTHLY_REPORT_PROMPT = """You are a nutrition analyst. Generate a detailed {period} report in Russian.
 
-USER DATA:
-- Period: {start_date} to {end_date}
-- Goals: {user_goals}
+STRUCTURE (MANDATORY):
+1. Greeting: "Ваш {period_ru} отчет готов!"
+2. СТАТИСТИКА (raw numbers: totals and averages for calories, protein, fats, carbs, fiber, liquid)
+3. ЦЕЛИ (if user_macros_goals exist: detailed comparison actual vs goals, calculate % achievement)
+4. АНАЛИЗ ПАТТЕРНОВ (look for trends across days: consistent eating, meal timing, food variety)
+5. ИНСАЙТЫ (2-4 evidence-based observations about nutrition quality, vitamin/mineral adequacy based on components)
+6. РЕКОМЕНДАЦИИ (1-2 mild, actionable suggestions - NOT medical advice)
 
-NUTRITION SUMMARY:
+CRITICAL INSTRUCTIONS:
+- Write in Russian, professional but friendly tone
+- You are NOT a doctor - do NOT diagnose, prescribe treatment, or give medical advice
+- You can only analyze nutrition data and provide general insights
+- Base all insights on scientific nutrition research
+- When suggesting changes, use soft language: "можно попробовать", "стоит рассмотреть", NOT "вам необходимо"
+- Assess components for micronutrients: vegetables→vitamins, dairy→calcium, meat→B12, etc.
+- Look for patterns: meal consistency, food variety, balance across days
+- Under 800 words
+- If data is incomplete (few days), mention limitations of analysis
+
+DATA EXPLANATION:
+USER MACROS GOALS (may be missing or partially filled):
+- calories: daily calorie goal
+- protein: daily protein goal (grams)
+- fats: daily fats goal (grams)
+- carbs: daily carbs goal (grams)
+- fiber: daily fiber goal (grams)
+- liquid: daily liquid goal (ml)
+
+SUMMARY STATISTICS:
+- total_calories, total_protein, total_fats, total_carbs, total_fiber, total_liquid
+- average_per_day (average daily values)
+- meals_count (total meals in period)
+- breakdown_by_type (breakfast, lunch, dinner, snack with totals for each)
+- macronutrients: totals + protein_percent, fats_percent, carbs_percent
+
+DAILY COMPONENTS:
+For each day: date + list of components with:
+- name: component name in Russian
+- W: weight in grams (solid food)
+- L: liquid volume in ml (drinks)
+
+Analyze components for likely micronutrient content and food diversity.
+
+Period: {start_date} to {end_date}
+Days with data: {days_count}
+
+User Goals:
+{user_goals}
+
+Summary:
 {summary}
 
-DAILY BREAKDOWN:
+Daily Components:
 {daily_components}
-
-INSTRUCTIONS:
-- Write in Russian, professional but friendly
-- Structure:
-  1. RAW DATA (totals and averages)
-  2. INTERPRETATION (meeting goals?)
-  3. CROSS-ANALYSIS (patterns if enough data)
-  4. INSIGHTS (2-4 observations)
-  5. RECOMMENDATIONS (1-2 actionable suggestions)
-- Under 800 words
-- Look for trends and patterns
 """
 
 
@@ -154,6 +218,98 @@ class OpenRouterClient:
         logger.error(error_msg)
         raise Exception(error_msg)
 
+    def _format_components_compact(self, daily_components: list) -> str:
+        """Format daily components in compact, readable format"""
+        if not daily_components:
+            return "Нет данных о компонентах"
+
+        result = []
+        for day_data in daily_components:
+            date = day_data.get("date", "Неизвестная дата")
+            components = day_data.get("components", [])
+
+            result.append(f"\n📅 {date}:")
+            for comp in components:
+                name = comp.get("name", "Неизвестно")
+                weight = comp.get("W")
+                liquid = comp.get("L")
+                comp_line = f'  • {name}:'
+                if weight:
+                    comp_line += f" {weight}г"
+                if liquid:
+                    comp_line += f" {liquid}мл"
+                result.append(comp_line)
+
+        return "\n".join(result)
+
+    def _format_user_goals(self, user_goals: dict) -> str:
+        """Format user goals in readable format"""
+        if not user_goals:
+            return "Цели не установлены"
+
+        goals = []
+        if "calories" in user_goals:
+            goals.append(f"Калории: {user_goals['calories']} ккал/день")
+        if "protein" in user_goals:
+            goals.append(f"Белки: {user_goals['protein']}г/день")
+        if "fats" in user_goals:
+            goals.append(f"Жиры: {user_goals['fats']}г/день")
+        if "carbs" in user_goals:
+            goals.append(f"Углеводы: {user_goals['carbs']}г/день")
+        if "fiber" in user_goals:
+            goals.append(f"Клетчатка: {user_goals['fiber']}г/день")
+        if "liquid" in user_goals:
+            goals.append(f"Жидкость: {user_goals['liquid']}мл/день")
+
+        return "\n".join(goals) if goals else "Цели не установлены"
+
+    def _format_summary(self, summary: dict) -> str:
+        """Format summary statistics in readable format"""
+        if not summary:
+            return "Нет статистики"
+
+        lines = []
+
+        # Main stats
+        if "total_calories" in summary:
+            lines.append(f"Всего калорий: {summary['total_calories']} ккал")
+        if "average_per_day" in summary:
+            lines.append(f"Среднее в день: {summary['average_per_day']:.1f} ккал")
+        if "meals_count" in summary:
+            lines.append(f"Всего приёмов пищи: {summary['meals_count']}")
+
+        # Macronutrients
+        macros = summary.get("macronutrients", {})
+        if macros:
+            lines.append("\nМакронутриенты:")
+            if "total_protein" in macros:
+                lines.append(f"  Белки: {macros['total_protein']}г ({macros.get('protein_percent', 0)}%)")
+            if "total_fats" in macros:
+                lines.append(f"  Жиры: {macros['total_fats']}г ({macros.get('fats_percent', 0)}%)")
+            if "total_carbs" in macros:
+                lines.append(f"  Углеводы: {macros['total_carbs']}г ({macros.get('carbs_percent', 0)}%)")
+            if "total_fiber" in macros:
+                lines.append(f"  Клетчатка: {macros['total_fiber']}г")
+            if "total_liquid" in macros:
+                lines.append(f"  Жидкость: {macros['total_liquid']}мл")
+
+        # Breakdown by meal type
+        breakdown = summary.get("breakdown_by_type", {})
+        if breakdown:
+            lines.append("\nПо типам приёмов пищи:")
+            meal_names = {
+                "breakfast": "Завтраки",
+                "lunch": "Обеды",
+                "dinner": "Ужины",
+                "snack": "Перекусы"
+            }
+            for meal_type, meal_name in meal_names.items():
+                if meal_type in breakdown:
+                    meal_data = breakdown[meal_type]
+                    lines.append(f"  {meal_name}: {meal_data.get('calories', 0)} ккал")
+
+        return "\n".join(lines)
+
     async def generate_report(
         self,
         period: str,
@@ -167,15 +323,31 @@ class OpenRouterClient:
         # Choose prompt based on period
         prompt_template = DAILY_REPORT_PROMPT if period == "day" else WEEKLY_MONTHLY_REPORT_PROMPT
 
+        # Calculate days count
+        days_count = len(daily_components) if daily_components else 0
+
+        # Period name in Russian
+        period_names = {
+            "day": "дневной",
+            "week": "недельный",
+            "month": "месячный"
+        }
+        period_ru = period_names.get(period, period)
+
         # Format data for prompt
-        user_goals_str = str(user_goals) if user_goals else "Цели не установлены"
+        user_goals_str = self._format_user_goals(user_goals)
+        summary_str = self._format_summary(summary)
+        components_str = self._format_components_compact(daily_components)
+
         prompt = prompt_template.format(
             period=period,
+            period_ru=period_ru,
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
+            days_count=days_count,
             user_goals=user_goals_str,
-            summary=str(summary),
-            daily_components=str(daily_components)
+            summary=summary_str,
+            daily_components=components_str
         )
 
         # Make API call
