@@ -6,11 +6,11 @@ from contextlib import asynccontextmanager
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from settings.logs import LogsConfig
 from settings.config import AppConfig, STAND
 from web.routes.reports import router as reports_router
-from web.routes.tasks import router as tasks_router
 from web.routes.notifications import router as notifications_router
 from web.middleware import APIKeyMiddleware
 from app.utils.error_handler import global_exception_handler, create_error_responses
@@ -94,18 +94,53 @@ app.include_router(
 )
 
 app.include_router(
-    tasks_router,
-    prefix="/tasks",
-    tags=["tasks"],
-    responses=create_error_responses()
-)
-
-app.include_router(
     notifications_router,
     prefix="/notifications",
     tags=["notifications"],
     responses=create_error_responses()
 )
+
+# Кастомизация OpenAPI схемы для отображения X-API-Key в Swagger UI
+def custom_openapi():
+    """Добавляет X-API-Key в OpenAPI схему для Swagger UI"""
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+
+    # Добавляем security scheme для X-API-Key
+    openapi_schema["components"]["securitySchemes"] = {
+        "X-API-Key": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+            "description": "API ключ для доступа к защищенным эндпоинтам"
+        }
+    }
+
+    # Применяем security глобально ко всем эндпоинтам (кроме /, /health, /docs, /webhook/*)
+    for path, path_item in openapi_schema["paths"].items():
+        # Пропускаем эндпоинты, которые не требуют авторизации
+        if path in ["/", "/health"] or path.startswith("/webhook/"):
+            continue
+
+        # Добавляем security ко всем методам в этом пути
+        for method in path_item:
+            if method in ["get", "post", "put", "patch", "delete"]:
+                if "security" not in path_item[method]:
+                    path_item[method]["security"] = [{"X-API-Key": []}]
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
 
 
 @app.get("/", tags=["health"])

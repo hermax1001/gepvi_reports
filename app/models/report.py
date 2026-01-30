@@ -38,11 +38,6 @@ class Report(SQLModel, table=True):
         description="Результат отчета (большой текст от AI модели)"
     )
 
-    # Task reference
-    task_id: int = Field(
-        sa_column=Column(ForeignKey("gepvi_reports.tasks.id"), nullable=False),
-        description="ID задачи, связанной с этим отчетом"
-    )
 
     # Timestamps
     created_at: datetime = Field(

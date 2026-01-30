@@ -104,24 +104,15 @@ async def test_reserve_notifications_without_report(async_client, session, api_h
 @pytest.mark.asyncio
 async def test_reserve_notifications_with_report(async_client, session, api_headers):
     """Тест резервации уведомлений с report_id (текст из reports.result)"""
-    from app.models import Notification, Task, Report
+    from app.models import Notification, Report
 
     user_id = uuid4()
 
-    # Создаем задачу и отчет
-    task = Task(
-        user_id=user_id,
-        next_task_time=datetime.now(timezone.utc),
-        period="day"
-    )
-    session.add(task)
-    await session.flush()
-
+    # Создаем отчет
     report = Report(
         user_id=user_id,
         report_type="day",
-        result="Report AI generated text from LLM",
-        task_id=task.id
+        result="Report AI generated text from LLM"
     )
     session.add(report)
     await session.flush()

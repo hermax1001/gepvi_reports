@@ -22,7 +22,7 @@ sys.path.insert(0, _parent_dir)
 from settings.config import AppConfig
 from web.main import app
 from app.database import get_session
-from app.models import Report, Task, Notification
+from app.models import Report, Notification
 
 
 @pytest.fixture(scope='session')
@@ -77,7 +77,6 @@ async def cleanup_db():
             # Удаляем в правильном порядке (учитывая FK constraints)
             await session.execute(Notification.__table__.delete())
             await session.execute(Report.__table__.delete())
-            await session.execute(Task.__table__.delete())
             await session.commit()
         except Exception:
             # Игнорируем ошибки если таблицы не существуют

@@ -26,6 +26,14 @@ class Settings:
         # API Authentication
         self.API_KEY: str = env.str("API_KEY", "BigbigbigtestapikeybigBigbig!!!asjkdhfl")
 
+        # External Services
+        self.USERS_SERVICE_URL: str = env.str("USERS_SERVICE_URL", "http://localhost:8001")
+        self.GEPVI_EAT_SERVICE_URL: str = env.str("GEPVI_EAT_SERVICE_URL", "http://localhost:8000")
+
+        # OpenRouter AI
+        self.OPENROUTER_API_KEY: str = env.str("OPENROUTER_API_KEY", "")
+        self.OPENROUTER_MODEL: str = env.str("OPENROUTER_MODEL", "google/gemini-2.5-flash-lite")
+
         # SENTRY
         self.SENTRY_DSN: str = env.str("SENTRY_DSN", "")
 

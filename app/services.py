@@ -4,11 +4,15 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 from uuid import UUID
 
+import httpx
 from sqlalchemy import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Report, Task, Notification
-from app.schemas import ReportResponse, TaskResponse, NotificationResponse
+from app.models import Report, Notification
+from app.schemas import ReportResponse, NotificationResponse
+from app.utils.error_handler import ValidationError
+from clients.gepvi_eat_client import gepvi_eat_client
+from clients.open_router import open_router_client
 from settings.config import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -32,7 +36,6 @@ async def get_reports_by_user_id(
             user_id=report.user_id,
             report_type=report.report_type,
             result=report.result,
-            task_id=report.task_id,
             created_at=report.created_at,
             updated_at=report.updated_at
         )
@@ -40,29 +43,77 @@ async def get_reports_by_user_id(
     ]
 
 
-# Task services
-async def get_tasks_by_user_id(
+async def create_report_with_notification(
     session: AsyncSession,
-    user_id: UUID
-) -> List[TaskResponse]:
-    """Получает все задачи пользователя по user_id"""
-    stmt = select(Task).where(Task.user_id == user_id)
-    result = await session.execute(stmt)
-    tasks = result.scalars().all()
+    user_id: UUID,
+    start_date: datetime,
+    end_date: datetime,
+    period: str,
+    sender_method: str
+) -> ReportResponse:
+    """Creates AI-generated report and notification"""
+    # Validate period
+    if period not in ("day", "week", "month"):
+        raise ValidationError(f"Invalid period: {period}. Must be day, week, or month")
 
-    logger.info("Retrieved %d tasks for user %s", len(tasks), user_id)
+    report_data = await gepvi_eat_client.get_user_report_data(user_id, start_date, end_date)
 
-    return [
-        TaskResponse(
-            id=task.id,
-            user_id=task.user_id,
-            next_task_time=task.next_task_time,
-            period=task.period,
-            created_at=task.created_at,
-            updated_at=task.updated_at
+    # Validate data exists
+    if not report_data or not report_data.get("meal_components_by_day"):
+        raise ValidationError("Insufficient data for report. No meals found in this period.")
+
+    # Extract data
+    user_goals = report_data.get("user_macros_goals", {})
+    summary = report_data.get("summary", {})
+    daily_components = report_data.get("meal_components_by_day", [])
+
+    # Generate AI report
+    try:
+        report_text = await open_router_client.generate_report(
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
+            user_goals=user_goals,
+            summary=summary,
+            daily_components=daily_components
         )
-        for task in tasks
-    ]
+    except Exception as e:
+        logger.error("Failed to generate AI report: %s", e)
+        raise ValidationError(f"Could not generate AI report: {e}")
+
+    # Save report to database
+    report = Report(
+        user_id=user_id,
+        report_type=period,
+        result=report_text
+    )
+    session.add(report)
+    await session.flush()
+
+    # Create notification
+    notification = Notification(
+        user_id=user_id,
+        text=None,  # Will use report.result when reserved
+        sender_method=sender_method,
+        report_id=report.id,
+        meta={
+            "report_start_date": start_date.isoformat(),
+            "report_end_date": end_date.isoformat(),
+        }
+    )
+    session.add(notification)
+    await session.commit()
+
+    logger.info("Created report id=%s and notification for user %s", report.id, user_id)
+
+    return ReportResponse(
+        id=report.id,
+        user_id=report.user_id,
+        report_type=report.report_type,
+        result=report.result,
+        created_at=report.created_at,
+        updated_at=report.updated_at
+    )
 
 
 # Notification services
