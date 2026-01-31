@@ -547,8 +547,8 @@ class OpenRouterClient:
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "https://gepvi_eat.com",
-                    "X-Title": "GepviEat Bot"
+                    "HTTP-Referer": "https://gepvi_report.com",
+                    "X-Title": "GepviReport Bot"
                 },
                 json=payload
             )
@@ -577,8 +577,8 @@ class OpenRouterClient:
                     headers={
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
-                        "HTTP-Referer": "https://gepvi_eat.com",
-                        "X-Title": "GepviEat Bot"
+                        "HTTP-Referer": "https://gepvi_report.com",
+                        "X-Title": "GepviReport Bot"
                     },
                     json=payload
                 )
