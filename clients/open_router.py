@@ -190,8 +190,8 @@ class OpenRouterClient:
 
     # Fallback модели - попробуем по порядку если основная не сработала
     FALLBACK_MODELS = [
+        "google/gemini-2.5-flash",
         "google/gemini-2.5-flash-lite",
-        "google/gemini-3-flash-preview",
         "google/gemini-2.0-flash-001",
     ]
 
